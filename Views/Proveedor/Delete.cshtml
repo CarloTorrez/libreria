@@ -1,0 +1,19 @@
+@model PrototipoCRUD.Models.Proveedor
+@{
+    ViewData["Title"] = "Eliminar proveedor";
+}
+
+<h2>Eliminar proveedor</h2>
+<h5 class="text-danger">¿Está seguro de que desea eliminar este proveedor?</h5>
+
+<dl class="row" style="max-width: 560px;">
+    <dt class="col-sm-4">Nombre</dt><dd class="col-sm-8">@Model.Nombre</dd>
+    <dt class="col-sm-4">Teléfono</dt><dd class="col-sm-8">@Model.Telefono</dd>
+    <dt class="col-sm-4">Correo</dt><dd class="col-sm-8">@Model.Correo</dd>
+</dl>
+
+<form asp-action="Delete" method="post">
+    <input type="hidden" asp-for="Id" />
+    <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+    <a asp-action="Index" class="btn btn-secondary">Cancelar</a>
+</form>

@@ -1,0 +1,69 @@
+@startuml
+title Diagrama de Clases - Librería "Páginas del Sur"
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam dpi 180
+skinparam nodesep 70
+skinparam ranksep 60
+skinparam class {
+  BackgroundColor #FFFFFF
+  BorderColor #7A1F2B
+  ArrowColor #333333
+}
+
+package "Models" {
+  class Proveedor {
+    + Id: int
+    + Nombre: string
+    + Telefono: string
+    + Correo: string
+  }
+  class Libro {
+    + Id: int
+    + Titulo: string
+    + Autor: string
+    + Isbn: string
+    + Precio: decimal
+    + Stock: int
+    + ProveedorId: int
+  }
+}
+
+package "Data (DAO)" {
+  class ProveedorDAO {
+    + Insertar(p: Proveedor): int
+    + ObtenerTodos(): List<Proveedor>
+    + ObtenerPorId(id: int): Proveedor
+    + Actualizar(p: Proveedor): void
+    + Eliminar(id: int): void
+  }
+  class LibroDAO {
+    + Insertar(l: Libro): void
+    + ObtenerTodos(busqueda: string): List<Libro>
+    + ObtenerPorId(id: int): Libro
+    + Actualizar(l: Libro): void
+    + Eliminar(id: int): void
+  }
+}
+
+package "Controllers" {
+  class ProveedorController {
+    + Index(): IActionResult
+    + Create(p: Proveedor): IActionResult
+    + Edit(p: Proveedor): IActionResult
+    + Delete(id: int): IActionResult
+  }
+  class LibroController {
+    + Index(busqueda: string): IActionResult
+    + Create(l: Libro): IActionResult
+    + Edit(l: Libro): IActionResult
+    + Delete(id: int): IActionResult
+  }
+}
+
+Proveedor "1" -- "*" Libro : provee >
+LibroController ..> LibroDAO : usa >
+ProveedorController ..> ProveedorDAO : usa >
+LibroDAO ..> Libro : gestiona >
+ProveedorDAO ..> Proveedor : gestiona >
+@enduml

@@ -1,0 +1,22 @@
+@model PrototipoCRUD.Models.Libro
+@{
+    ViewData["Title"] = "Eliminar libro";
+}
+
+<h2>Eliminar libro</h2>
+<h5 class="text-danger">¿Está seguro de que desea eliminar este libro?</h5>
+
+<dl class="row" style="max-width: 560px;">
+    <dt class="col-sm-4">Título</dt><dd class="col-sm-8">@Model.Titulo</dd>
+    <dt class="col-sm-4">Autor</dt><dd class="col-sm-8">@Model.Autor</dd>
+    <dt class="col-sm-4">ISBN</dt><dd class="col-sm-8">@Model.Isbn</dd>
+    <dt class="col-sm-4">Precio (Bs)</dt><dd class="col-sm-8">@Model.Precio.ToString("N2")</dd>
+    <dt class="col-sm-4">Stock</dt><dd class="col-sm-8">@Model.Stock</dd>
+    <dt class="col-sm-4">Proveedor</dt><dd class="col-sm-8">@Model.ProveedorNombre</dd>
+</dl>
+
+<form asp-action="Delete" method="post">
+    <input type="hidden" asp-for="Id" />
+    <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+    <a asp-action="Index" class="btn btn-secondary">Cancelar</a>
+</form>

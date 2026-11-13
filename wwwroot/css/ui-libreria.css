@@ -1,0 +1,48 @@
+/* ===== Paleta limitada (5 colores) =====
+   1. Vino    #7A1F2B  -> menú lateral y acciones principales
+   2. Crema   #F6ECE8  -> superficies suaves / encabezados
+   3. Blanco  #FFFFFF  -> área de trabajo
+   4. Grafito #2B2B2B  -> texto
+   5. Ámbar   #9A5B00  -> avisos y validaciones (tono amable, no alarmante)
+*/
+:root { --vino:#7A1F2B; --crema:#F6ECE8; --blanco:#FFFFFF; --grafito:#2B2B2B; --ambar:#9A5B00; }
+
+body { color: var(--grafito); background: var(--blanco); font-family: "Inter", "Segoe UI", Arial, sans-serif; }
+
+/* Regla 80/20: menú fijo a la izquierda (20%) + área de trabajo (80%) */
+.app-shell { display: flex; min-height: 100vh; }
+.app-menu { width: 20%; min-width: 190px; background: var(--vino); color: var(--blanco); padding: 24px 16px; position: sticky; top: 0; height: 100vh; }
+.app-menu .marca { font-weight: 700; font-size: 1.15rem; margin-bottom: 28px; line-height: 1.25; }
+.app-menu .marca small { display: block; font-weight: 400; opacity: .85; font-size: .8rem; }
+.app-menu a { display: block; color: var(--blanco); text-decoration: none; padding: 10px 12px; border-radius: 8px; margin-bottom: 4px; }
+.app-menu a:hover { background: rgba(255,255,255,.14); }
+.app-menu a.activo { background: var(--crema); color: var(--vino); font-weight: 600; }
+.app-main { width: 80%; padding: 32px 40px; }
+
+/* Botones: una sola acción principal (vino) y secundarias discretas */
+.btn-primary, .btn-vino { background: var(--vino); border-color: var(--vino); color: var(--blanco); }
+.btn-primary:hover, .btn-vino:hover, .btn-primary:focus { background: #5f1822; border-color: #5f1822; color: var(--blanco); }
+.btn-secondary { background: var(--blanco); color: var(--grafito); border-color: var(--grafito); }
+.btn-secondary:hover { background: var(--crema); color: var(--grafito); border-color: var(--grafito); }
+.btn-warning { background: var(--blanco); color: var(--vino); border: 1px solid var(--vino); }
+.btn-warning:hover { background: var(--crema); color: var(--vino); border-color: var(--vino); }
+.btn-danger { background: var(--blanco); color: var(--grafito); border: 1px solid var(--grafito); }
+.btn-danger:hover { background: var(--crema); color: var(--grafito); border-color: var(--grafito); }
+.btn-outline-secondary { color: var(--grafito); border-color: var(--grafito); }
+.btn-outline-secondary:hover { background: var(--crema); color: var(--grafito); }
+a { color: var(--vino); }
+
+.alert-success, .alert-danger { background: var(--crema); color: var(--grafito); border: 1px solid var(--vino); }
+.table-striped > tbody > tr:nth-of-type(odd) > * { background-color: var(--crema); --bs-table-accent-bg: var(--crema); }
+.table thead th { border-bottom: 2px solid var(--vino); }
+
+/* Diálogo "Nuevo libro" */
+.modal-content { border: 0; border-radius: 12px; }
+.modal-title { color: var(--vino); font-weight: 700; }
+.modal-header, .modal-footer { border-color: var(--crema); }
+.form-label { font-weight: 600; }
+.form-control:focus, .form-select:focus { border-color: var(--vino); box-shadow: 0 0 0 .2rem rgba(122,31,43,.18); }
+.campo-error { color: var(--ambar); font-size: .875rem; margin-top: 4px; }
+.form-control.con-aviso, .form-select.con-aviso { border-color: var(--ambar); }
+.aviso-general { background: var(--crema); border-left: 4px solid var(--ambar); color: var(--grafito); padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; }
+.atajos { font-size: .8rem; color: var(--grafito); opacity: .75; }

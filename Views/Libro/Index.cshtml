@@ -1,0 +1,247 @@
+@model List<PrototipoCRUD.Models.Libro>
+@{
+    ViewData["Title"] = "Libros";
+}
+
+<h2>Catálogo de libros</h2>
+
+@if (TempData["Ok"] != null)
+{
+    <div class="alert alert-success">@TempData["Ok"]</div>
+}
+
+<form method="get" class="row g-2 mb-4 align-items-center">
+    <div class="col-auto">
+        <input type="text" name="busqueda" value="@ViewData["Busqueda"]" class="form-control" placeholder="Buscar por título o autor" />
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-outline-secondary">Buscar</button>
+        <a asp-action="Index" class="btn btn-link">Limpiar</a>
+    </div>
+    <div class="col text-end">
+        <!-- Esta acción abre el diálogo modal "Nuevo libro" -->
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalNuevoLibro">Nuevo libro</button>
+    </div>
+</form>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>N.º</th><th>Título</th><th>Autor</th><th>ISBN</th>
+            <th>Precio (Bs)</th><th>Unidades</th><th>Proveedor</th><th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var l in Model)
+    {
+        <tr>
+            <td>@l.Id</td>
+            <td>@l.Titulo</td>
+            <td>@l.Autor</td>
+            <td>@l.Isbn</td>
+            <td>@l.Precio.ToString("N2")</td>
+            <td>@l.Stock</td>
+            <td>@l.ProveedorNombre</td>
+            <td>
+                <a asp-action="Edit" asp-route-id="@l.Id" class="btn btn-sm btn-warning">Editar</a>
+                <a asp-action="Delete" asp-route-id="@l.Id" class="btn btn-sm btn-danger">Eliminar</a>
+            </td>
+        </tr>
+    }
+    </tbody>
+</table>
+
+@if (Model.Count == 0)
+{
+    <p class="text-muted">No se encontraron libros.</p>
+}
+
+<!-- ============ DIÁLOGO MODAL: NUEVO LIBRO ============ -->
+<div class="modal fade" id="modalNuevoLibro" tabindex="-1" aria-labelledby="tituloNuevoLibro" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="formNuevoLibro" novalidate>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="tituloNuevoLibro">Nuevo libro</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="avisoGeneral" class="aviso-general" style="display:none"></div>
+
+                    <div class="mb-3">
+                        <label for="nl-titulo" class="form-label">Título del libro</label>
+                        <input type="text" id="nl-titulo" name="titulo" class="form-control" maxlength="150" autocomplete="off" />
+                        <div class="campo-error" id="err-titulo"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="nl-autor" class="form-label">Autor</label>
+                        <input type="text" id="nl-autor" name="autor" class="form-control" maxlength="100" autocomplete="off" />
+                        <div class="campo-error" id="err-autor"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="nl-isbn" class="form-label">Código ISBN</label>
+                        <input type="text" id="nl-isbn" name="isbn" class="form-control" maxlength="20" autocomplete="off" placeholder="Ej.: 978-0307474728" />
+                        <div class="campo-error" id="err-isbn"></div>
+                    </div>
+                    <div class="row">
+                        <div class="col mb-3">
+                            <label for="nl-precio" class="form-label">Precio de venta (Bs)</label>
+                            <input type="text" id="nl-precio" name="precio" class="form-control" inputmode="decimal" autocomplete="off" placeholder="Ej.: 45,50" />
+                            <div class="campo-error" id="err-precio"></div>
+                        </div>
+                        <div class="col mb-3">
+                            <label for="nl-stock" class="form-label">Unidades disponibles</label>
+                            <input type="number" id="nl-stock" name="stock" class="form-control" min="0" />
+                            <div class="campo-error" id="err-stock"></div>
+                        </div>
+                    </div>
+                    <div class="mb-1">
+                        <label for="nl-proveedor" class="form-label">Proveedor</label>
+                        <select id="nl-proveedor" name="proveedorId" class="form-select" asp-items="ViewBag.Proveedores"></select>
+                        <div class="campo-error" id="err-proveedor"></div>
+                    </div>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <span class="atajos">Esc: cancelar &nbsp;·&nbsp; Enter o Ctrl+S: guardar</span>
+                    <div>
+                        <button type="button" class="btn btn-secondary" id="btnCancelarLibro">Cancelar</button>
+                        <button type="submit" class="btn btn-primary" id="btnGuardarLibro">Guardar libro</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    const modalEl   = document.getElementById('modalNuevoLibro');
+    const form      = document.getElementById('formNuevoLibro');
+    const aviso     = document.getElementById('avisoGeneral');
+    const modal     = new bootstrap.Modal(modalEl);   // Esc cierra el diálogo (keyboard: true por defecto)
+    const urlGuardar = '@Url.Action("CrearRapido", "Libro")';
+    let cerrarSinPreguntar = false;
+    let estadoInicial = '';
+
+    const campos = ['titulo', 'autor', 'isbn', 'precio', 'stock', 'proveedor'];
+    const entradas = {
+        titulo: document.getElementById('nl-titulo'),
+        autor: document.getElementById('nl-autor'),
+        isbn: document.getElementById('nl-isbn'),
+        precio: document.getElementById('nl-precio'),
+        stock: document.getElementById('nl-stock'),
+        proveedor: document.getElementById('nl-proveedor')
+    };
+
+    function estadoActual() {
+        return JSON.stringify(campos.map(c => entradas[c].value));
+    }
+
+    function limpiarAvisos() {
+        aviso.style.display = 'none';
+        campos.forEach(c => {
+            document.getElementById('err-' + c).textContent = '';
+            entradas[c].classList.remove('con-aviso');
+        });
+    }
+
+    function mostrarAvisos(errores) {
+        limpiarAvisos();
+        let primero = null;
+        campos.forEach(c => {
+            if (errores[c]) {
+                document.getElementById('err-' + c).textContent = errores[c];
+                entradas[c].classList.add('con-aviso');
+                if (!primero) primero = entradas[c];
+            }
+        });
+        aviso.textContent = 'Ya casi está. Revise los campos marcados y vuelva a guardar: sus datos siguen aquí.';
+        aviso.style.display = 'block';
+        if (primero) primero.focus();
+    }
+
+    // Validación en el navegador (mismos mensajes amables que el servidor)
+    function validar() {
+        const e = {};
+        if (!entradas.titulo.value.trim()) e.titulo = 'Escriba el título del libro para poder guardarlo.';
+        if (!entradas.autor.value.trim()) e.autor = 'Indique el nombre del autor. Si no lo conoce, escriba "Anónimo".';
+        if (!entradas.isbn.value.trim()) e.isbn = 'Escriba el código ISBN que está en la contraportada del libro.';
+        const p = entradas.precio.value.trim().replace(',', '.');
+        if (!p) e.precio = 'Indique el precio de venta. Por ejemplo: 45,50.';
+        else if (isNaN(Number(p)) || Number(p) < 0) e.precio = 'El precio debe ser un número igual o mayor a 0. Por ejemplo: 45,50.';
+        if (entradas.stock.value === '' || Number(entradas.stock.value) < 0) e.stock = 'Escriba cuántas unidades hay (0 o más).';
+        if (!entradas.proveedor.value) e.proveedor = 'Elija el proveedor al que le compra este libro.';
+        return e;
+    }
+
+    async function guardar() {
+        const errores = validar();
+        if (Object.keys(errores).length > 0) { mostrarAvisos(errores); return; }
+
+        const datos = new URLSearchParams();
+        datos.append('titulo', entradas.titulo.value.trim());
+        datos.append('autor', entradas.autor.value.trim());
+        datos.append('isbn', entradas.isbn.value.trim());
+        datos.append('precio', entradas.precio.value.trim());
+        datos.append('stock', entradas.stock.value);
+        datos.append('proveedorId', entradas.proveedor.value);
+
+        try {
+            const respuesta = await fetch(urlGuardar, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: datos
+            });
+            const resultado = await respuesta.json();
+            if (resultado.ok) {
+                cerrarSinPreguntar = true;
+                modal.hide();
+                window.location.reload();      // la lista se actualiza y muestra el mensaje de éxito
+            } else {
+                mostrarAvisos(resultado.errores || {});
+            }
+        } catch (err) {
+            aviso.textContent = 'No pudimos conectar con el sistema en este momento. Sus datos siguen aquí; intente guardar de nuevo en unos segundos.';
+            aviso.style.display = 'block';
+        }
+    }
+
+    // BUENA PRÁCTICA 2 (defaults): al abrir, se precargan valores lógicos
+    modalEl.addEventListener('show.bs.modal', function () {
+        form.reset();
+        limpiarAvisos();
+        entradas.stock.value = 1;                      // Unidades = 1
+        entradas.proveedor.selectedIndex = 0;          // primer proveedor de la lista
+        cerrarSinPreguntar = false;
+        estadoInicial = estadoActual();
+    });
+
+    // BUENA PRÁCTICA 1 (control/atajos): foco inicial en el primer campo
+    modalEl.addEventListener('shown.bs.modal', function () { entradas.titulo.focus(); });
+
+    // BUENA PRÁCTICA 4 (tolerancia a errores): si hay datos escritos, pedir confirmación amable
+    modalEl.addEventListener('hide.bs.modal', function (ev) {
+        if (!cerrarSinPreguntar && estadoActual() !== estadoInicial) {
+            if (!confirm('Tiene datos sin guardar. ¿Desea cerrar sin guardar el libro?')) {
+                ev.preventDefault();
+            }
+        }
+    });
+
+    // Enter (envío del formulario) = guardar
+    form.addEventListener('submit', function (ev) { ev.preventDefault(); guardar(); });
+
+    // Ctrl + S = guardar
+    modalEl.addEventListener('keydown', function (ev) {
+        if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 's') {
+            ev.preventDefault();
+            guardar();
+        }
+    });
+
+    // Botón Cancelar (mismo comportamiento que Esc)
+    document.getElementById('btnCancelarLibro').addEventListener('click', function () { modal.hide(); });
+})();
+</script>
+}
