@@ -1,0 +1,185 @@
+@model List<PrototipoCRUD.Models.Libro>
+@{
+    ViewData["Title"] = "Registrar venta";
+}
+
+<h2>Registrar venta</h2>
+
+<div id="mensajeVenta" style="display:none"></div>
+
+<!-- ===== CABECERA (MAESTRO) ===== -->
+<div class="row g-3 mb-4" style="max-width: 760px;">
+    <div class="col-md-5">
+        <label for="fechaVenta" class="form-label">Fecha de la venta</label>
+        <input type="text" id="fechaVenta" class="form-control" readonly />
+    </div>
+    <div class="col-md-7">
+        <label for="clienteVenta" class="form-label">Cliente</label>
+        <input type="text" id="clienteVenta" class="form-control" maxlength="150" value="Consumidor Final" autocomplete="off" />
+    </div>
+</div>
+
+<!-- ===== AGREGAR LIBROS AL DETALLE ===== -->
+<h5 class="mb-3">Libros de la venta</h5>
+<div class="row g-2 align-items-end mb-1" style="max-width: 900px;">
+    <div class="col-md-6">
+        <label for="libroVenta" class="form-label">Libro</label>
+        <select id="libroVenta" class="form-select"></select>
+    </div>
+    <div class="col-md-2">
+        <label for="cantidadVenta" class="form-label">Cantidad</label>
+        <input type="number" id="cantidadVenta" class="form-control" min="1" value="1" />
+    </div>
+    <div class="col-md-4">
+        <button type="button" id="btnAgregar" class="btn btn-warning">Agregar a la venta</button>
+    </div>
+</div>
+<div class="campo-error mb-3" id="errCantidad"></div>
+
+<!-- ===== DETALLE EN MEMORIA ===== -->
+<table class="table table-striped" style="max-width: 900px;">
+    <thead>
+        <tr><th>Libro</th><th class="text-end">Cantidad</th><th class="text-end">Precio unitario (Bs)</th><th class="text-end">Subtotal (Bs)</th><th></th></tr>
+    </thead>
+    <tbody id="cuerpoDetalle"></tbody>
+    <tfoot>
+        <tr>
+            <th colspan="3" class="text-end">Total general</th>
+            <th class="text-end" id="totalVenta">Bs. 0,00</th>
+            <th></th>
+        </tr>
+    </tfoot>
+</table>
+
+<div class="mb-4">
+    <button type="button" id="btnConfirmar" class="btn btn-primary">Confirmar venta</button>
+    <button type="button" id="btnLimpiar" class="btn btn-secondary">Cancelar venta</button>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    // Catálogo de libros que llega desde el servidor (id, título, precio)
+    const libros = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+        Model.Select(l => new { id = l.Id, titulo = l.Titulo, precio = l.Precio, stock = l.Stock })));
+    const urlGuardar = '@Url.Action("Registrar", "Venta")';
+
+    // DETALLE EN MEMORIA: arreglo de líneas de la venta actual
+    let detalle = [];
+
+    const selLibro   = document.getElementById('libroVenta');
+    const inCantidad = document.getElementById('cantidadVenta');
+    const errCant    = document.getElementById('errCantidad');
+    const cuerpo     = document.getElementById('cuerpoDetalle');
+    const totalEl    = document.getElementById('totalVenta');
+    const msg        = document.getElementById('mensajeVenta');
+    const inCliente  = document.getElementById('clienteVenta');
+    const inFecha    = document.getElementById('fechaVenta');
+
+    const bs = n => 'Bs. ' + n.toFixed(2).replace('.', ',');
+
+    function ponerFecha() {
+        const d = new Date(), p = x => String(x).padStart(2, '0');
+        inFecha.value = p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+    }
+
+    function mostrarMensaje(texto, esExito) {
+        msg.className = esExito ? 'alert alert-success' : 'aviso-general';
+        msg.textContent = texto;
+        msg.style.display = 'block';
+    }
+    function ocultarMensaje() { msg.style.display = 'none'; }
+
+    // Llena el selector de libros
+    libros.forEach(l => {
+        const o = document.createElement('option');
+        o.value = l.id;
+        o.textContent = l.titulo + ' — Bs. ' + l.precio.toFixed(2).replace('.', ',');
+        selLibro.appendChild(o);
+    });
+
+    // Redibuja la tabla y recalcula el total (en tiempo real)
+    function dibujar() {
+        cuerpo.innerHTML = '';
+        let total = 0;
+        if (detalle.length === 0) {
+            cuerpo.innerHTML = '<tr><td colspan="5" class="text-muted">Todavía no agregó libros a esta venta.</td></tr>';
+        }
+        detalle.forEach((d, i) => {
+            const sub = d.cantidad * d.precio;
+            total += sub;
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td></td><td class="text-end">' + d.cantidad + '</td>' +
+                '<td class="text-end">' + d.precio.toFixed(2).replace('.', ',') + '</td>' +
+                '<td class="text-end">' + sub.toFixed(2).replace('.', ',') + '</td>' +
+                '<td class="text-end"><button type="button" class="btn btn-sm btn-danger">Quitar</button></td>';
+            tr.children[0].textContent = d.titulo;
+            tr.querySelector('button').addEventListener('click', () => { detalle.splice(i, 1); dibujar(); });
+            cuerpo.appendChild(tr);
+        });
+        totalEl.textContent = bs(total);
+    }
+
+    // Agregar un libro a la lista en memoria
+    document.getElementById('btnAgregar').addEventListener('click', function () {
+        ocultarMensaje();
+        errCant.textContent = '';
+        const cant = Number(inCantidad.value);
+        if (!Number.isInteger(cant) || cant <= 0) {
+            errCant.textContent = 'Escriba una cantidad de 1 o más (número entero) para agregar el libro.';
+            inCantidad.focus();
+            return;
+        }
+        const libro = libros.find(l => l.id === Number(selLibro.value));
+        if (!libro) { errCant.textContent = 'Elija un libro de la lista.'; return; }
+        const existente = detalle.find(d => d.idProducto === libro.id);
+        if (existente) existente.cantidad += cant;       // mismo libro: suma cantidades
+        else detalle.push({ idProducto: libro.id, titulo: libro.titulo, precio: libro.precio, cantidad: cant });
+        inCantidad.value = 1;
+        dibujar();
+    });
+
+    function reiniciar() {
+        detalle = [];
+        inCliente.value = 'Consumidor Final';
+        inCantidad.value = 1;
+        errCant.textContent = '';
+        ponerFecha();
+        dibujar();
+    }
+
+    document.getElementById('btnLimpiar').addEventListener('click', function () {
+        if (detalle.length > 0 && !confirm('Se quitarán todos los libros de esta venta. ¿Desea cancelarla?')) return;
+        ocultarMensaje();
+        reiniciar();
+    });
+
+    // Confirmar: valida y envía la venta completa al controlador
+    document.getElementById('btnConfirmar').addEventListener('click', async function () {
+        ocultarMensaje();
+        if (detalle.length === 0) {
+            mostrarMensaje('Agregue al menos un libro a la venta antes de confirmar.', false);
+            return;
+        }
+        const datos = new URLSearchParams();
+        datos.append('cliente', inCliente.value.trim());
+        datos.append('detallesJson', JSON.stringify(detalle.map(d => ({ idProducto: d.idProducto, cantidad: d.cantidad }))));
+        try {
+            const r = await fetch(urlGuardar, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: datos
+            });
+            const res = await r.json();
+            if (res.ok) { reiniciar(); mostrarMensaje(res.mensaje, true); }
+            else { mostrarMensaje(res.mensaje, false); }
+        } catch (e) {
+            mostrarMensaje('No pudimos conectar con el sistema. Sus libros siguen en la lista; intente confirmar otra vez.', false);
+        }
+    });
+
+    ponerFecha();
+    dibujar();
+})();
+</script>
+}
