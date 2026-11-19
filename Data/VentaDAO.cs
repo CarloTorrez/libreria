@@ -4,6 +4,12 @@ using PrototipoCRUD.Models;
 
 namespace PrototipoCRUD.Data
 {
+    // Se lanza cuando se intenta vender más unidades de las que hay
+    public class StockInsuficienteException : Exception
+    {
+        public StockInsuficienteException(string mensaje) : base(mensaje) { }
+    }
+
     public class VentaDAO
     {
         // Registra cabecera + detalle de forma ATÓMICA (todo o nada).
@@ -17,7 +23,11 @@ namespace PrototipoCRUD.Data
             {
                 // 1. Cabecera: se recupera el id generado con RETURNING id
                 const string sqlCabecera =
-                    "INSERT INTO ventas (fecha, cliente, total) VALUES (@fecha, @cliente, @total) RETURNING id";
+                    @"INSERT INTO ventas
+                        (fecha, cliente, vendedor, subtotal_bruto, porcentaje_descuento, monto_descuento, total_final, total)
+                      VALUES
+                        (@fecha, @cliente, @vendedor, @bruto, @pct, @monto, @final, @total)
+                      RETURNING id";
                 int idVenta;
                 using (var cmdCab = new NpgsqlCommand(sqlCabecera, conexion, transaccion))
                 {
@@ -27,7 +37,12 @@ namespace PrototipoCRUD.Data
                         Value = DateTime.SpecifyKind(venta.Fecha, DateTimeKind.Unspecified)
                     });
                     cmdCab.Parameters.AddWithValue("cliente", venta.Cliente);
-                    cmdCab.Parameters.AddWithValue("total", venta.Total);
+                    cmdCab.Parameters.AddWithValue("vendedor", venta.Vendedor);                 // trazabilidad
+                    cmdCab.Parameters.AddWithValue("bruto", venta.SubtotalBruto);
+                    cmdCab.Parameters.AddWithValue("pct", venta.PorcentajeDescuento);           // la BD tiene CHECK <= 20
+                    cmdCab.Parameters.AddWithValue("monto", venta.MontoDescuento);
+                    cmdCab.Parameters.AddWithValue("final", venta.TotalFinal);
+                    cmdCab.Parameters.AddWithValue("total", venta.TotalFinal);                  // columna original conservada
                     idVenta = Convert.ToInt32(cmdCab.ExecuteScalar());
                 }
 
@@ -46,6 +61,16 @@ namespace PrototipoCRUD.Data
                     cmdDet.Parameters.AddWithValue("precio", item.PrecioUnitario);
                     cmdDet.Parameters.AddWithValue("sub", item.Subtotal);
                     cmdDet.ExecuteNonQuery();
+
+                    // Descuenta el stock; la condición "stock >= cantidad" evita quedar en negativo
+                    const string sqlStock =
+                        "UPDATE libros SET stock = stock - @cant WHERE id = @id AND stock >= @cant";
+                    using var cmdStock = new NpgsqlCommand(sqlStock, conexion, transaccion);
+                    cmdStock.Parameters.AddWithValue("cant", item.Cantidad);
+                    cmdStock.Parameters.AddWithValue("id", item.IdProducto);
+                    if (cmdStock.ExecuteNonQuery() == 0)
+                        throw new StockInsuficienteException(
+                            $"No hay unidades suficientes de \"{item.NombreProducto}\". Reduzca la cantidad e intente de nuevo.");
                 }
 
                 // 3. Todo salió bien: se confirma

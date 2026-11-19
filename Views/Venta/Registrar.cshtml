@@ -17,6 +17,17 @@
         <label for="clienteVenta" class="form-label">Cliente</label>
         <input type="text" id="clienteVenta" class="form-control" maxlength="150" value="Consumidor Final" autocomplete="off" />
     </div>
+    <div class="col-md-7">
+        <label for="vendedorVenta" class="form-label">Vendedor</label>
+        <input type="text" id="vendedorVenta" class="form-control" maxlength="100" placeholder="Ej.: Carlos Torrez" autocomplete="off" />
+        <div class="campo-error" id="errVendedor"></div>
+    </div>
+    <div class="col-md-5">
+        <label for="descuentoVenta" class="form-label">Descuento (%)</label>
+        <input type="number" id="descuentoVenta" class="form-control" min="0" max="20" step="0.5" value="0" />
+        <div class="form-text">Máximo permitido: 20%</div>
+        <div class="campo-error" id="errDescuento"></div>
+    </div>
 </div>
 
 <!-- ===== AGREGAR LIBROS AL DETALLE ===== -->
@@ -44,7 +55,17 @@
     <tbody id="cuerpoDetalle"></tbody>
     <tfoot>
         <tr>
-            <th colspan="3" class="text-end">Total general</th>
+            <th colspan="3" class="text-end">Subtotal bruto</th>
+            <th class="text-end" id="subtotalBruto">Bs. 0,00</th>
+            <th></th>
+        </tr>
+        <tr>
+            <th colspan="3" class="text-end" id="etiquetaDescuento">Descuento (0%)</th>
+            <th class="text-end" id="montoDescuento">- Bs. 0,00</th>
+            <th></th>
+        </tr>
+        <tr>
+            <th colspan="3" class="text-end">Total final</th>
             <th class="text-end" id="totalVenta">Bs. 0,00</th>
             <th></th>
         </tr>
@@ -75,6 +96,11 @@
     const msg        = document.getElementById('mensajeVenta');
     const inCliente  = document.getElementById('clienteVenta');
     const inFecha    = document.getElementById('fechaVenta');
+    const inVendedor = document.getElementById('vendedorVenta');
+    const inDescuento = document.getElementById('descuentoVenta');
+    const errVendedor = document.getElementById('errVendedor');
+    const errDescuento = document.getElementById('errDescuento');
+    const DESCUENTO_MAX = 20;      // regla CR-01
 
     const bs = n => 'Bs. ' + n.toFixed(2).replace('.', ',');
 
@@ -90,13 +116,28 @@
     }
     function ocultarMensaje() { msg.style.display = 'none'; }
 
-    // Llena el selector de libros
-    libros.forEach(l => {
-        const o = document.createElement('option');
-        o.value = l.id;
-        o.textContent = l.titulo + ' — Bs. ' + l.precio.toFixed(2).replace('.', ',');
-        selLibro.appendChild(o);
-    });
+    // Llena el selector de libros (muestra las unidades disponibles)
+    function llenarSelector() {
+        const elegido = selLibro.value;
+        selLibro.innerHTML = '';
+        libros.forEach(l => {
+            const o = document.createElement('option');
+            o.value = l.id;
+            o.textContent = l.titulo + ' — Bs. ' + l.precio.toFixed(2).replace('.', ',') + ' (disponibles: ' + l.stock + ')';
+            selLibro.appendChild(o);
+        });
+        if (elegido) selLibro.value = elegido;
+    }
+    llenarSelector();
+
+    // Lee el descuento escrito. Devuelve {valido, valor}
+    function leerDescuento() {
+        const t = inDescuento.value.trim().replace(',', '.');
+        if (t === '') return { valido: true, valor: 0 };
+        const v = Number(t);
+        if (isNaN(v) || v < 0 || v > DESCUENTO_MAX) return { valido: false, valor: 0 };
+        return { valido: true, valor: v };
+    }
 
     // Redibuja la tabla y recalcula el total (en tiempo real)
     function dibujar() {
@@ -117,8 +158,20 @@
             tr.querySelector('button').addEventListener('click', () => { detalle.splice(i, 1); dibujar(); });
             cuerpo.appendChild(tr);
         });
-        totalEl.textContent = bs(total);
+        // Descuento: mensaje amable si se pasa de 20% o es negativo (no se aplica hasta corregirlo)
+        const d = leerDescuento();
+        if (d.valido) { errDescuento.textContent = ''; inDescuento.classList.remove('con-aviso'); }
+        else {
+            errDescuento.textContent = 'El descuento máximo permitido es ' + DESCUENTO_MAX + '%. Ingrese un valor entre 0 y ' + DESCUENTO_MAX + '.';
+            inDescuento.classList.add('con-aviso');
+        }
+        const monto = Math.round(total * d.valor) / 100;     // total * (valor / 100), a 2 decimales
+        document.getElementById('subtotalBruto').textContent = bs(total);
+        document.getElementById('etiquetaDescuento').textContent = 'Descuento (' + d.valor + '%)';
+        document.getElementById('montoDescuento').textContent = '- ' + bs(monto);
+        totalEl.textContent = bs(total - monto);
     }
+    inDescuento.addEventListener('input', dibujar);
 
     // Agregar un libro a la lista en memoria
     document.getElementById('btnAgregar').addEventListener('click', function () {
@@ -133,6 +186,20 @@
         const libro = libros.find(l => l.id === Number(selLibro.value));
         if (!libro) { errCant.textContent = 'Elija un libro de la lista.'; return; }
         const existente = detalle.find(d => d.idProducto === libro.id);
+        const yaAgregado = existente ? existente.cantidad : 0;
+        // Validación de stock: no agregar más de lo disponible
+        if (libro.stock <= 0) {
+            errCant.textContent = '"' + libro.titulo + '" no tiene unidades disponibles por ahora.';
+            return;
+        }
+        if (yaAgregado + cant > libro.stock) {
+            const faltan = libro.stock - yaAgregado;
+            errCant.textContent = 'Solo hay ' + libro.stock + ' unidad(es) disponible(s) de "' + libro.titulo + '"' +
+                (yaAgregado > 0 ? ' y ya agregó ' + yaAgregado + ' a esta venta' : '') +
+                '. Puede agregar hasta ' + Math.max(faltan, 0) + ' más.';
+            inCantidad.focus();
+            return;
+        }
         if (existente) existente.cantidad += cant;       // mismo libro: suma cantidades
         else detalle.push({ idProducto: libro.id, titulo: libro.titulo, precio: libro.precio, cantidad: cant });
         inCantidad.value = 1;
@@ -142,6 +209,7 @@
     function reiniciar() {
         detalle = [];
         inCliente.value = 'Consumidor Final';
+        inDescuento.value = 0;               // el vendedor se conserva para la siguiente venta
         inCantidad.value = 1;
         errCant.textContent = '';
         ponerFecha();
@@ -161,8 +229,24 @@
             mostrarMensaje('Agregue al menos un libro a la venta antes de confirmar.', false);
             return;
         }
+        // Validación de trazabilidad: el vendedor es obligatorio
+        errVendedor.textContent = '';
+        if (!inVendedor.value.trim()) {
+            errVendedor.textContent = 'Escriba el nombre del vendedor para poder registrar la venta.';
+            inVendedor.classList.add('con-aviso'); inVendedor.focus();
+            return;
+        }
+        inVendedor.classList.remove('con-aviso');
+        // Validación de la regla CR-01 antes de enviar
+        if (!leerDescuento().valido) {
+            mostrarMensaje('Revise el descuento: el máximo permitido es ' + DESCUENTO_MAX + '%. Ajústelo y confirme de nuevo.', false);
+            inDescuento.focus();
+            return;
+        }
         const datos = new URLSearchParams();
         datos.append('cliente', inCliente.value.trim());
+        datos.append('vendedor', inVendedor.value.trim());
+        datos.append('descuento', String(leerDescuento().valor));
         datos.append('detallesJson', JSON.stringify(detalle.map(d => ({ idProducto: d.idProducto, cantidad: d.cantidad }))));
         try {
             const r = await fetch(urlGuardar, {
@@ -171,7 +255,11 @@
                 body: datos
             });
             const res = await r.json();
-            if (res.ok) { reiniciar(); mostrarMensaje(res.mensaje, true); }
+            if (res.ok) {
+                // El servidor ya descontó el stock: se actualiza también el catálogo en pantalla
+                detalle.forEach(d => { const l = libros.find(x => x.id === d.idProducto); if (l) l.stock -= d.cantidad; });
+                reiniciar(); llenarSelector(); mostrarMensaje(res.mensaje, true);
+            }
             else { mostrarMensaje(res.mensaje, false); }
         } catch (e) {
             mostrarMensaje('No pudimos conectar con el sistema. Sus libros siguen en la lista; intente confirmar otra vez.', false);
